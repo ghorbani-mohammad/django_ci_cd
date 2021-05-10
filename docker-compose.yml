@@ -1,0 +1,57 @@
+version: '3'
+
+services:
+
+  PROJECT_NAME_db:
+    container_name: PROJECT_NAME_db
+    image: mdillon/postgis:11
+    restart: unless-stopped
+    volumes:
+      - PROJECT_NAME_db:/var/lib/postgresql/data
+
+  PROJECT_NAME_api:
+    container_name: PROJECT_NAME_api
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - PROJECT_NAME_db
+    volumes:
+      - .:/app
+      - /var/www/PROJECT_NAME/static:/app/PROJECT_NAME/static
+    ports:
+      - 9052:80
+    command: ["python", "/app/PROJECT_NAME/manage.py", "runserver", "0:80"]
+    environment:
+      DEBUG: 'True'
+
+  PROJECT_NAME_celery:
+    container_name: PROJECT_NAME_celery
+    build: .
+    working_dir: /app/PROJECT_NAME
+    command: ["celery", "-A", "PROJECT_NAME", "worker", "-l", "info"]
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    depends_on:
+      - PROJECT_NAME_db
+      - PROJECT_NAME_redis
+
+  PROJECT_NAME_beat:
+    container_name: PROJECT_NAME_beat
+    build: .
+    working_dir: /app/PROJECT_NAME
+    command: ["celery", "-A", "PROJECT_NAME", "beat", "-l", "info"]
+    restart: unless-stopped
+    volumes:
+      - .:/app
+    depends_on:
+      - PROJECT_NAME_db
+      - PROJECT_NAME_redis
+
+  PROJECT_NAME_redis:
+    container_name : PROJECT_NAME_redis
+    image: redis:5.0.8
+    restart: unless-stopped
+
+volumes:
+  PROJECT_NAME_db:
